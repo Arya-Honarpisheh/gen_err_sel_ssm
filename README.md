@@ -8,11 +8,9 @@ This repository contains the code for the experiments in the paper:
 To create the environment:
 
 ```bash
-conda env create -f environment.yml -n my_env_name
-conda activate my_env_name
+conda env create -f environment.yml -n gen_err_sel_ssm
+conda activate gen_err_sel_ssm
 ```
-
-Replace `my_env_name` with your preferred environment name.
 
 ## 📦 Code Overview
 
