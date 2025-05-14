@@ -9,6 +9,7 @@ dependencies:
   - matplotlib
   - scikit-learn
   - einops
+  - ipykernel
   - pip
   - pip:
       - torchmetrics
