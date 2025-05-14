@@ -3,20 +3,33 @@
 This repository contains the code for the experiments in the paper:  
 **"Generalization Error Analysis for Selective State-Space Models Through the Lens of Attention"**, submitted to NeurIPS 2025.
 
-## Code Overview
+## 🔧 Setup (Conda)
 
-- The Selective State-Space Model is implemented in PyTorch in  
-  `models/selective_ssm.py`.
+To create the environment:
 
-- The main training script is `main.py`, which loads data and trains the model.  
-  You can run it from the command line, or use the helper script `run_main.sh` to run it.
+```bash
+conda env create -f environment.yml -n my_env_name
+conda activate my_env_name
+```
 
-## Experiments
+Replace `my_env_name` with your preferred environment name.
+
+## 📦 Code Overview
+
+- The Selective State-Space Model is implemented in PyTorch in `models/selective_ssm.py`.
+
+- The main script is `main.py`, which loads data, trains the model, and saves the results for different experiments.
+  You can run it directly from the command line, or modify and execute the helper script:
+
+```bash
+bash run_main.sh
+```
+
+## 📊 Experiments
 
 - **Length-independence experiment:** `test_models.ipynb`  
-- **Stability margin experiment:** `plot_s_A_T.ipynb`
+- **Stability margin experiment:** `plot_sA_T.ipynb`
+
+---
 
 This repository is anonymized for peer review.
-
-
-
