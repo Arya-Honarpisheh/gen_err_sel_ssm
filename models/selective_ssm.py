@@ -31,10 +31,10 @@ class SelectiveSSM(nn.Module):
 
         # Initialize A as a dxN matrix where each row corresponds to the diagonal of an NxN matrix.
         if self.fix_sA:
-            self.register_buffer('A', -s_A*torch.ones(d, N, device=self.device))
+            self.register_buffer('A', s_A*torch.ones(d, N, device=self.device))
         else:
-            self.A = nn.Parameter(-10*torch.rand(d, N, device=self.device)-s_A)
-            with torch.no_grad(): self.A[:,0] = -s_A
+            self.A = nn.Parameter(-10*torch.rand(d, N, device=self.device)+s_A)
+            with torch.no_grad(): self.A[:,0] = s_A
 
         # Initialize W_B and W_C as projection weights for the input and output.
         self.W_B = nn.Parameter(torch.randn(N, d, device=self.device))
@@ -82,6 +82,10 @@ class SelectiveSSM(nn.Module):
 
         return y
     
+    def clip_state_matrix(self, threshold=-1e-6):
+        with torch.no_grad():
+            self.A.clamp_(max=threshold)
+
     def forward(self, u):
         """
         Forward pass for the SSMBlock.
@@ -190,3 +194,51 @@ class SentimentModel(nn.Module):
         y = self.SSM(x)
 
         return y
+    
+class MultiClassModel(nn.Module):
+    """
+    Class for the MultiClassModel using the SSMBlock.
+    - Used for tasks that output multiple class labels.
+    """
+    
+    def __init__(self, vocab_size, embedding_size=50, N=100, s_A=0, num_classes=10, use_delta=True, fix_sA=True, device=None):
+        """
+        Initialize the MultiClassModel.
+        Args:
+            vocab_size (int): Size of the vocabulary.
+            embedding_size (int): Size of the embedding.
+            N (int): Number of states per channel.
+            s_A (float): Stability margin of matrix A.
+            num_classes (int): Number of classes.
+            use_delta (bool): Whether to use the discretization parameter.
+            fix_sA (bool): Whether to fix the first state of the first channel to -s_A.
+            device (torch.device): Device to be used.
+        Returns:
+            None
+        """
+        
+        print("vocab_size: ", vocab_size)
+        print("embedding_size: ", embedding_size)
+        
+        super(MultiClassModel, self).__init__()
+        self.embedding = nn.Embedding(vocab_size, embedding_size)
+        self.ssm = SelectiveSSM(d=embedding_size, N=N, s_A=s_A, use_delta=use_delta, fix_sA=fix_sA, device=device)
+        # self.ssm0 = SelectiveSSM(d=embedding_size, N=N, s_A=s_A, use_delta=use_delta, fix_sA=fix_sA, device=device)
+        self.W = nn.Parameter(torch.randn(num_classes, embedding_size, device=device))
+        
+    def forward(self, u):
+        """
+        Forward pass for the MultiClassModel.
+        Args:
+            u (torch.Tensor): Input tensor of shape (batch_size, seq_len).
+        Returns:
+            y (torch.Tensor): Output of the MultiClassModel.
+        """
+
+        x = self.embedding(u)
+        # x = self.ssm0(x)
+        # x = torch.sigmoid(x)
+        y = self.ssm(x)
+        out = einsum(self.W, y[:, -1, :], 'c d, b d -> b c')
+
+        return out

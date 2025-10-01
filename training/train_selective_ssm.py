@@ -3,9 +3,9 @@ import csv
 import numpy as np
 import torch
 import torch.nn as nn
-from torchmetrics.classification import BinaryAccuracy
+from torchmetrics.classification import Accuracy, BinaryAccuracy
 from einops import einsum
-from models.selective_ssm import SentimentModel
+from models.selective_ssm import SentimentModel, MultiClassModel
 from sklearn.metrics import classification_report
 
 
@@ -38,16 +38,16 @@ class CollapseAvoidLoss(torch.nn.Module):
     
 # Initialize the CSV file with headers
 def initialize_csv(filename):
-    headers = ['epoch', 's_A', 'L_p', 'B_q', 'B_B', 'M_B', 'B_C', 'M_C', 'B_A', 'Loss']
+    headers = ['epoch', 's_A', 'L_p', 'B_q', 'B_B', 'M_B', 'B_C', 'M_C', 'B_A', 'B_u', 'Loss']
     with open(filename, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(headers)
 
 # Append data for each epoch
-def log_to_csv(filename, epoch, s_A, L_p, B_q, B_B, M_B, B_C, M_C, B_A, loss):
+def log_to_csv(filename, epoch, s_A, L_p, B_q, B_B, M_B, B_C, M_C, B_A, B_u, loss):
     with open(filename, mode='a', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow([epoch, s_A, L_p, B_q, B_B, M_B, B_C, M_C, B_A, loss])
+        writer.writerow([epoch, s_A, L_p, B_q, B_B, M_B, B_C, M_C, B_A, B_u, loss])
         
 def calculate_params(model):
     """
@@ -72,7 +72,7 @@ def calculate_params(model):
     else:
         raise ValueError(f"Invalid model class: {model.__class__.__name__}")
     
-    s_A = -ssm.A.detach().max().item()
+    s_A = ssm.A.detach().max().item()
     L_p = torch.norm(ssm.p_delta, p=2).item()
     B_q = torch.norm(ssm.q_delta, p=2).item()
     B_B = torch.norm(ssm.W_B, p=2).item()
@@ -80,8 +80,9 @@ def calculate_params(model):
     B_C = torch.norm(ssm.W_C, p=2).item()
     M_C = torch.sum(torch.abs(ssm.W_C)).item()
     B_A = torch.max(torch.abs(ssm.A)).item()
+    B_u = torch.norm(model.embedding.weight, dim=1).max().item()
     
-    return s_A, L_p, B_q, B_B, M_B, B_C, M_C, B_A
+    return s_A, L_p, B_q, B_B, M_B, B_C, M_C, B_A, B_u
 
 
 # Training Loop
@@ -121,6 +122,9 @@ def train_ssm_block(device, task, T, s_A, d, N, num_classes, use_delta=True, fix
     elif task == 'majority':
         model = SentimentModel(2, d, N, s_A, use_delta, fix_sA, device).to(device)
         accuracy_metric = BinaryAccuracy().to(device)  # Binary classification task
+    elif task == 'listops':
+        model = MultiClassModel(len(vocab), d, N, s_A, num_classes, use_delta, fix_sA, device).to(device)
+        accuracy_metric = Accuracy(task="multiclass", num_classes=num_classes).to(device)  # 10-class classification task
     else:
         raise ValueError(f"Invalid task: {task}")
     
@@ -136,8 +140,8 @@ def train_ssm_block(device, task, T, s_A, d, N, num_classes, use_delta=True, fix
     # Initialize the CSV file for the log
     if log_file is not None:
         initialize_csv(log_file)
-        s_A, L_p, B_q, B_B, M_B, B_C, M_C, B_A = calculate_params(model)
-        log_to_csv(log_file, 0, s_A, L_p, B_q, B_B, M_B, B_C, M_C, B_A, 0)  
+        s_A, L_p, B_q, B_B, M_B, B_C, M_C, B_A, B_u = calculate_params(model)
+        log_to_csv(log_file, 0, s_A, L_p, B_q, B_B, M_B, B_C, M_C, B_A, B_u, 0)  
     
     accuracy_epochs = 5  # You can adjust this value for how often you want to log accuracy
 
@@ -145,13 +149,6 @@ def train_ssm_block(device, task, T, s_A, d, N, num_classes, use_delta=True, fix
         epoch_start_time = time.time()
         epoch_loss = 0
         accuracy_metric.reset()  # Reset the accuracy metric at the start of each epoch
-        
-        # print("sA: ", -model.SSM.ssm.A.detach().max())
-        # print("L_p: ", torch.norm(model.SSM.ssm.p_delta, p=2))
-        # print("B_q: ", torch.norm(model.SSM.ssm.q_delta, p=2))
-        
-        # Print the stability margin for each epoch
-        # print(f"Stability Margin: {-model.SSM.ssm.A.detach().max():.2f}")
         
         for batch in data_loader:
             X_batch, y_batch = batch
@@ -163,11 +160,15 @@ def train_ssm_block(device, task, T, s_A, d, N, num_classes, use_delta=True, fix
             # Check the ouput of model
             if torch.isnan(outputs).any():
                 raise ValueError("Model output is NaN!")
+            
             if torch.isinf(outputs).any():
                 raise ValueError("Model output is infinite!")
 
             ##### To not stuck in local minima, we add a penalty term to the loss function #####
-            loss = criterion(outputs, y_batch.float())
+            if task == 'imdb' or task == 'majority':
+                loss = criterion(outputs, y_batch.float())
+            elif task == 'listops':
+                loss = criterion(outputs, y_batch.long())  # Use CrossEntropyLoss for 10-class classification
             std_loss = CollapseAvoidLoss(min_std=0.1, factor=10)
             loss += std_loss(outputs)
             ###############################################################################
@@ -202,9 +203,9 @@ def train_ssm_block(device, task, T, s_A, d, N, num_classes, use_delta=True, fix
         print(f"Epoch {epoch+1}/{num_epochs}, Average Loss: {avg_loss:.4f}, Learning Rate: {current_lr:.6f}, Time: {epoch_end_time - epoch_start_time:.2f} seconds")
         
         # Compute the stability margin and norms for the last epoch
-        s_A, L_p, B_q, B_B, M_B, B_C, M_C, B_A = calculate_params(model)
+        s_A, L_p, B_q, B_B, M_B, B_C, M_C, B_A, B_u = calculate_params(model)
         if log_file is not None:
-            log_to_csv(log_file, epoch+1, s_A, L_p, B_q, B_B, M_B, B_C, M_C, B_A, avg_loss)
+            log_to_csv(log_file, epoch+1, s_A, L_p, B_q, B_B, M_B, B_C, M_C, B_A, B_u, avg_loss)
         
         # Log and print accuracy every accuracy_epochs epochs
         if (epoch + 1) % accuracy_epochs == 0:

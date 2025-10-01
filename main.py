@@ -6,14 +6,14 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 import argparse
 from training.train_selective_ssm import train_ssm_block
-from training.load_datasets import get_imdb, create_majority_dataset
-from models.selective_ssm import SentimentModel
+from training.load_datasets import get_imdb, create_majority_dataset, get_listops
+from models.selective_ssm import SentimentModel, MultiClassModel
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Stability Margin and Length Independence Experiments")
     parser.add_argument('--devID', type=int, default=0, help="GPU ID to use")
     parser.add_argument('--experiment', choices=['stability_margin_T', 'length_independence'], required=True, help="Choose the experiment: stability_margin or length_independence")
-    parser.add_argument('--dataset', choices=['imdb', 'majority'], required=True, help="Choose the dataset")
+    parser.add_argument('--dataset', choices=['imdb', 'majority', 'listops'], required=True, help="Choose the dataset")
     parser.add_argument('--T_values', type=int, nargs='+', default=[100], help="List of sequence lengths to test")
     parser.add_argument('--T_var', type=int, default=5, help="+- variation for T value (Tmin/Tmax for ListOps)")
     parser.add_argument('--s_A_values', type=float, nargs='+', default=[0], help="Stability margin for SSM")
@@ -93,12 +93,18 @@ def run_experiment(args):
             print("Using IMDB Dataset...")
             criterion = nn.BCEWithLogitsLoss()
             num_classes = 2
-            train_loader, _, tokenizer = get_imdb(T=T, num_samples=args.num_train, batch_size=args.batch_size)
+            train_loader, _, tokenizer = get_imdb(T=T, num_samples=args.num_train, batch_size=args.batch_size, seed=args.seed)
         elif args.dataset == 'majority':
-            print("Using Majority Dataset...")
+            print("Using Sparse Majority Dataset...")
             criterion = nn.BCEWithLogitsLoss()
             num_classes = 2
-            train_loader, _ = create_majority_dataset(T=T, num_samples=args.num_train, batch_size=args.batch_size)
+            train_loader, _ = create_majority_dataset(T=T, num_samples=args.num_train, batch_size=args.batch_size, seed=args.seed)
+        elif args.dataset == 'listops':
+            print("Using ListOps Dataset...")
+            criterion = nn.CrossEntropyLoss()
+            num_classes = 10
+            train_loader, _, vocab = get_listops(dataset_dir='./dataset', T_min=T-args.T_var, T_max=T+args.T_var, num_train=args.num_train, num_valid=args.num_valid, num_test=args.num_test, balanced=args.balanced, batch_size=args.batch_size, seed=args.seed)
+        
         
         for s_A in args.s_A_values:
             print(f"Processing T={T}, s_A={s_A}...")
@@ -123,6 +129,8 @@ def run_experiment(args):
                     model = SentimentModel(vocab_size, args.d, args.N, s_A, args.use_delta, device).to(device)
                 elif args.dataset == 'majority':
                     model = SentimentModel(2, args.d, args.N, s_A, args.use_delta, device).to(device)
+                elif args.dataset == 'listops':
+                    model = MultiClassModel(len(vocab), args.d, args.N, s_A, num_classes, args.use_delta, device).to(device)
                                     
                 model.load_state_dict(torch.load(model_path, weights_only=True))
             
@@ -131,14 +139,14 @@ def run_experiment(args):
                                             T=T, s_A=s_A, d=args.d, N=args.N, 
                                             num_classes=num_classes,
                                             use_delta=args.use_delta, 
-                                            fix_sA=args.fix_sA, 
+                                            fix_sA=args.fix_sA,
                                             data_loader=train_loader,
-                                            criterion=criterion, 
-                                            num_epochs=args.num_epochs, 
+                                            criterion=criterion,
+                                            num_epochs=args.num_epochs,
                                             learning_rate=args.learning_rate, 
                                             weight_decay=args.weight_decay, 
                                             tokenizer=tokenizer if ( args.dataset == 'imdb') else None, 
-                                            vocab= None,
+                                            vocab=vocab if args.dataset =='listops' else None, 
                                             log_file=log_file)
             
             # Save the training loss wrt the experiment we are conducting
@@ -150,16 +158,17 @@ def run_experiment(args):
                 ValueError(f'Invalid experiment: {args.experiment}.')
                 
             # Save the trained model
-            if args.save_results: torch.save(model.state_dict(), model_path)
+            if args.save_results and args.experiment == 'length_independence':
+                torch.save(model.state_dict(), model_path)
 
             # Save training loss plot
-            plt.figure()
-            plt.plot(range(1, len(losses) + 1), losses, marker='o', linestyle='-')
-            plt.xlabel('Epochs')
-            plt.ylabel('Loss')
-            plt.title(f'Training Loss - T={T}, s_A={s_A}, N={args.N}')
-            if args.save_results: plt.savefig(f'results/{args.experiment}/{args.dataset}/epochs/T{T}_sA_{s_A}_{filename}.png')
-            plt.close()
+            # plt.figure()
+            # plt.plot(range(1, len(losses) + 1), losses, marker='o', linestyle='-')
+            # plt.xlabel('Epochs')
+            # plt.ylabel('Loss')
+            # plt.title(f'Training Loss - T={T}, s_A={s_A}, N={args.N}')
+            # if args.save_results: plt.savefig(f'results/{args.experiment}/{args.dataset}/epochs/T{T}_sA_{s_A}_{filename}.png')
+            # plt.close()
 
     print("Training complete!")
 
