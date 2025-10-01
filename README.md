@@ -1,7 +1,6 @@
 # gen_err_sel_ssm
 
-This repository contains the code for the experiments in the paper:  
-**"Generalization Error Analysis for Selective State-Space Models Through the Lens of Attention"**, submitted to NeurIPS 2025.
+This repository contains the code for the experiments in the paper **"Generalization Error Analysis for Selective State-Space Models Through the Lens of Attention"**, Accepted as a poster to [NeurIPS 2025](https://neurips.cc/virtual/2025/poster/117416).
 
 ## 🔧 Setup (Conda)
 
@@ -27,7 +26,21 @@ bash run_main.sh
 
 - **Length-independence experiment:** `test_models.ipynb`  
 - **Stability margin experiment:** `plot_sA_T.ipynb`
+- **Significant analysis:** `significance_test.ipynb`
 
 ---
 
-This repository is anonymized for peer review.
+## 📚 Citation
+
+If you find this repository useful, please cite:
+
+```bibtex
+@article{honarpisheh2025generalization,
+  title={Generalization Error Analysis for Selective State-Space Models Through the Lens of Attention},
+  author={Honarpisheh, Arya and Bozdag, Mustafa and Camps, Octavia and Sznaier, Mario},
+  journal={arXiv preprint arXiv:2502.01473},
+  year={2025}
+}
+
+
+
