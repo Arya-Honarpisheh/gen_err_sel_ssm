@@ -14,7 +14,6 @@ conda activate gen_err_sel_ssm
 ## 📦 Code Overview
 
 - The Selective State-Space Model is implemented in PyTorch in `models/selective_ssm.py`.
-
 - The main script is `main.py`, which loads data, trains the model, and saves the results for different experiments.
   You can run it directly from the command line, or modify and execute the helper script:
 
@@ -29,6 +28,14 @@ bash run_main.sh
 - **Significant analysis:** `significance_test.ipynb`
 
 ---
+
+## 🗂️ Datasets
+
+- **IMDB (sentiment, 25k train / 25k test, binary labels):** [Stanford IMDB (Maas et al., 2011)](https://ai.stanford.edu/~amaas/data/sentiment/) • [HF dataset card](https://huggingface.co/datasets/stanfordnlp/imdb)
+- **ListOps (hierarchical parsing / long-context reasoning):** part of **Long Range Arena (LRA)** — [arXiv](https://arxiv.org/abs/2011.04006) • [LRA GitHub](https://github.com/google-research/long-range-arena)
+- **Majority (synthetic):** binary sequence where the label equals the majority bit; we use a simple generator released in this repo.
+
+Dataset loading functions are in `training/load_datasets.py`.
 
 ## 📚 Citation
 
