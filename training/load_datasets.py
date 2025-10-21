@@ -5,7 +5,6 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from transformers import AutoTokenizer
 from datasets import load_dataset
-import nltk
 import pandas as pd
 import re
 

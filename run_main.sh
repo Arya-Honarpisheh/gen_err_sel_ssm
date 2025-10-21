@@ -6,27 +6,27 @@ USEDELTA=True                       # Use delta in SSM
 FIXSA=False                         # Fix s_A in the A matrix first entry
 SAVE=True                           # Save the model
 MODEL_PATH=''                       # Path to pre-trained model (if skipping training)
-SEED=22                             # Random seed
+SEED=0                              # Random seed
 
 export PYTHONHASHSEED=$SEED
 
 # Choose between 'stability_margin' or 'length_independence'
-EXPERIMENT="length_independence"  # Experiment type
+EXPERIMENT="stability_margin_T"  # Experiment type
 
 # Choose sequence lenght T and stability margin s_A values based on the experiment 
 if [ "$EXPERIMENT" == "stability_margin_T" ]; then
-    T_VALUES="300 350 400 450 500 550 600"
-    # T_VALUES="50 100 150 200 250 300 350"
-    T_VALUES="100 200 300 400 500 600 700"
-    S_A_VALUES="0.1"
+    # T_VALUES="300 350 400 450 500 550 600"
+    T_VALUES="300"
+    # T_VALUES="100 200 300 400 500 600 700"
+    S_A_VALUES="-0.1 -0.08 -0.06 -0.04 -0.02 0.0 0.02 0.04 0.06 0.08"
 elif [ "$EXPERIMENT" == "length_independence" ]; then
     T_VALUES="25 50 75 100 125 150 175 200 225 250 275 300 325 350 375 400"
     T_VALUES="1800 1900"
     S_A_VALUES="0.0"
 fi
 
-# Choose between 'imdb' and 'majority'
-DATASET="imdb" # Dataset to use
+# Choose between 'imdb', 'majority', and 'listops' datasets
+DATASET="listops" # Dataset to use
 
 if [ "$DATASET" == "imdb" ]; then
     NUM_TRAIN=25000                                         # Number of training samples
