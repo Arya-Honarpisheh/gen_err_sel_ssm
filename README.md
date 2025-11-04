@@ -42,11 +42,13 @@ Dataset loading functions are in `training/load_datasets.py`.
 If you find this repository useful, please cite:
 
 ```bibtex
-@article{honarpisheh2025generalization,
-  title={Generalization Error Analysis for Selective State-Space Models Through the Lens of Attention},
-  author={Honarpisheh, Arya and Bozdag, Mustafa and Camps, Octavia and Sznaier, Mario},
-  journal={arXiv preprint arXiv:2502.01473},
-  year={2025}
+@inproceedings{
+honarpisheh2025generalization,
+title={Generalization Error Analysis for Selective State-Space Models Through the Lens of Attention},
+author={Arya Honarpisheh and Mustafa Bozdag and Octavia Camps and Mario Sznaier},
+booktitle={The Thirty-ninth Annual Conference on Neural Information Processing Systems},
+year={2025},
+url={https://openreview.net/forum?id=YVZbaVikBp}
 }
 
 
